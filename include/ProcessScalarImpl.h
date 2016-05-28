@@ -22,7 +22,7 @@ namespace mtca4u {
      * three use cases (sender, receiver, and stand-alone).
      */
     template<class T>
-    class ProcessScalarImpl: public ProcessVariable {
+    class ProcessScalarImpl{
 
     // Allow the factory functions to create instances of this class.
       //    friend typename ProcessScalarImpl<T>::SharedPtr createSimpleProcessScalar<T>(
@@ -62,6 +62,11 @@ namespace mtca4u {
 
     public:
       /**
+       * Returns the name that identifies the process variable.
+       */
+      const std::string& getName() const;
+
+      /**
        * Type alias for a shared pointer to this type.
        */
       typedef boost::shared_ptr<ProcessScalarImpl> SharedPtr;
@@ -74,7 +79,7 @@ namespace mtca4u {
        */
       ProcessScalarImpl(InstanceType instanceType, const std::string& name,
           T initialValue) :
-          ProcessVariable(name), _instanceType(instanceType), _value(
+          _name(name), _instanceType(instanceType), _value(
               initialValue) {
         // It would be better to do the validation before initializing, but this
         // would mean that we would have to initialize twice.
@@ -94,7 +99,7 @@ namespace mtca4u {
        */
       ProcessScalarImpl(InstanceType instanceType, const std::string& name,
           T initialValue, std::size_t numberOfBuffers) :
-          ProcessVariable(name), _instanceType(instanceType), _value(
+          _name(name), _instanceType(instanceType), _value(
               initialValue), _bufferQueue(
               boost::make_shared<boost::lockfree::queue<Buffer> >(
                   numberOfBuffers)) {
@@ -131,7 +136,7 @@ namespace mtca4u {
           boost::shared_ptr<TimeStampSource> timeStampSource,
           boost::shared_ptr<ProcessVariableListener> sendNotificationListener,
           boost::shared_ptr<ProcessScalarImpl> receiver) :
-          ProcessVariable(receiver->getName()), _instanceType(instanceType), _timeStamp(
+          _name(receiver->getName()), _instanceType(instanceType), _timeStamp(
               receiver->_timeStamp), _value(receiver->_value), _bufferQueue(
               receiver->_bufferQueue), _receiver(receiver), _timeStampSource(
               timeStampSource), _sendNotificationListener(
@@ -178,24 +183,10 @@ namespace mtca4u {
         return *this;
       }
 
-      operator T() const {
-        return get();
-      }
-
       void set(T const & t) {
         _value = t;
       }
       
-      // FIXME: this belongs to ProcessScalar, not the Impl. Moved here to remove the impl
-      // inheritence for creating the pimpl pattern, where impl and not are typedefed.
-      const std::type_info& getValueType() const {
-	return typeid(T);
-      }
-
-      bool isArray() const {
-	return false;
-      }
-
       void set(ProcessScalarImpl<T> const & other) {
         set(other.get());
       }
@@ -265,6 +256,10 @@ namespace mtca4u {
       }
 
     private:
+      /** The name of the process variable. Do we need this in the impl?
+       */
+      std::string _name;
+
       /**
        * Type for the individual buffers. Each buffer stores a value and a time
        * stamp.

@@ -8,6 +8,9 @@
 #include "ProcessVariable.h"
 #include "ProcessVariableListener.h"
 
+// The impl must be incuded here because the templated inline code needs it.
+#include "ProcessScalarImpl.h"
+
 namespace mtca4u {
   /**
    * Interface implemented by all process scalars.
@@ -16,26 +19,26 @@ namespace mtca4u {
    * should only be used from a single thread.
    */
   template<class T>
-  class ProcessScalarHowItLookedLike: public ProcessVariable {
+  class ProcessScalar: public ProcessVariable {
   public:
     /**
      * Assign the content of another process variable of type T to this one.
      * It only assigns the variable content, but not the callback functions.
      * This operator behaves like set().
      */
-    //    ProcessScalar<T> & operator=(ProcessScalar<T> const & other) {
-    //      this->set(other);
-    //      return *this;
-    //    }
+    ProcessScalar<T> & operator=(ProcessScalar<T> const & other) {
+      this->set(other);
+      return *this;
+    }
 
     /**
      * Assign the content of the template type. This operator behaves like
      * set().
      */
-    //    ProcessScalar<T> & operator=(T const & t) {
-    //      this->set(t);
-    //      return *this;
-    //    }
+    ProcessScalar<T> & operator=(T const & t) {
+      this->set(t);
+      return *this;
+    }
 
     /**
      * Set the value of this process variable to the one of the other process
@@ -43,64 +46,93 @@ namespace mtca4u {
      * notifies the control system that this process variable's value has
      * changed.
      */
-    //    virtual void set(ProcessScalar<T> const & other)=0;
+    void set(ProcessScalar<T> const & other){
+      _processScalarImpl->set(other._processScalarImpl);
+    }
 
     /**
      * Set the value of this process variable to the specified one. This does
      * not trigger the on-set callback function, however it notifies the control
      * system that this process variable's value has changed.
      */
-    //virtual void set(T const & t)=0;
+    void set(T const & t){
+      _processScalarImpl->set(t);      
+    }
 
     /**
      * Automatic conversion operator which returns a \b copy of this process
      * variable's value. As no reference is returned, this cannot be used for
      * assignment.
      */
-    //virtual operator T() const =0;
+    operator T() const{
+      // note: the impl, whis is always held in a shared pointer, does not need the
+      // operator as it does not work directly with the pointer anyway.
+      // Hence the implementation of the operator is here: just call get().
+       _processScalarImpl->get();     
+    }
 
     /**
      * Returns a \b copy of this process variable's value. As no reference is
      * returned, this cannot be used for assignment.
      */
-    //virtual T get() const =0;
+    T get() const{
+      _processScalarImpl->get();
+    }
 
-    //    const std::type_info& getValueType() const {
-    //      return typeid(T);
-    //    }
+    const std::type_info& getValueType() const {
+      return typeid(T);
+    }
 
-    //    bool isArray() const {
-    //      return false;
-    //    }
+    bool isArray() const {
+      return false;
+    }
+
+    bool isReceiver() const {
+      return _processScalarImpl->isReceiver();
+    }
+
+    bool isSender() const {
+      return _processScalarImpl->isSender();
+    }
+
+    TimeStamp getTimeStamp() const {
+      return _processScalarImpl->getTimeStamp();
+    }
+
+    bool receive() {
+      return _processScalarImpl->receive();
+    }
+
+    bool send() {
+      return _processScalarImpl->send();
+    }
 
   protected:
     /**
+     * Shared pointer holding the actual implementation of process scalar.
+     */
+    boost::shared_ptr< impl::ProcessScalarImpl<T> > _processScalarImpl;
+
+    /**
      * Creates a process scalar with the specified name.
      */
-    //ProcessScalar(const std::string& name = std::string()) :
-    //        ProcessVariable(name) {
-    //    }
+    ProcessScalar(boost::shared_ptr<impl::ProcessScalarImpl <T> > & processScalarImpl) :
+      ProcessVariable(processScalarImpl->name()), _processScalarImpl(processScalarImpl) {
+    }
 
     /**
      * Protected destructor. Instances should not be destroyed through
      * pointers to this base type.
      */
-    //    virtual ~ProcessScalar() {
-    //    }
+    virtual ~ProcessScalar() {
+    }
 
   };
 
 } //namespace
 
-// FIXME ProcessScalarImpl.h must be included before defining the creator functions, because
-// these have been hacked to return the impl.
-#include "ProcessScalarImpl.h"
 
 namespace mtca4u{
-  // for the transition phase ProcessScalar and Impl are the same
-  template<class T>
-    using ProcessScalar = impl::ProcessScalarImpl<T>;
-
   /**
    * Creates a simple process scalar. A simple process scalar just works on its
    * own and does not implement a synchronization mechanism. Apart from this,
@@ -164,8 +196,9 @@ namespace mtca4u {
   template<class T>
   typename ProcessScalar<T>::SharedPtr createSimpleProcessScalar(
       const std::string & name, T initialValue) {
-    return boost::make_shared<typename impl::ProcessScalarImpl<T> >(
-        impl::ProcessScalarImpl<T>::STAND_ALONE, name, initialValue);
+    auto theImpl = boost::make_shared<typename impl::ProcessScalarImpl<T> >(
+      impl::ProcessScalarImpl<T>::STAND_ALONE, name, initialValue);
+    return boost::make_shared< ProcessScalar<T> >( theImpl );
   }
 
   template<class T>
@@ -182,8 +215,8 @@ namespace mtca4u {
         typename impl::ProcessScalarImpl<T> >(
         impl::ProcessScalarImpl<T>::SENDER, timeStampSource,
         sendNotificationListener, receiver);
-    return std::pair<typename ProcessScalar<T>::SharedPtr,
-        typename ProcessScalar<T>::SharedPtr>(sender, receiver);
+    return std::make_pair( boost::make_shared< ProcessScalar<T> >(sender),
+			   boost::make_shared< ProcessScalar<T> >(receiver) );
   }
 
 } // namespace mtca4u
