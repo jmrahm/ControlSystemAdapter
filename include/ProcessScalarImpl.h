@@ -15,7 +15,7 @@
 #include "ProcessVariableListener.h"
 
 namespace mtca4u {
-    namespace impl {
+  namespace impl {
 
     /**
      * Implementation of the ProcessScalar. This implementation is used for all

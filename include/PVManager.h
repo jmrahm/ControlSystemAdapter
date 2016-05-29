@@ -341,7 +341,7 @@ namespace mtca4u {
     private:
       // We use weak references in order to avoid circular references.
       boost::weak_ptr<PVManager> _pvManager;
-      boost::weak_ptr<ProcessVariable> _controlSystemProcessVariable;
+      boost::weak_ptr<impl::ProcessVariableImpl> _controlSystemProcessVariable;
       boost::atomic<bool> _notificationPending;
 
     public:
@@ -349,7 +349,7 @@ namespace mtca4u {
           _pvManager(pvManager), _notificationPending(false) {
       }
 
-      void notify(ProcessVariable::SharedPtr controlSystemProcessVariable) {
+      void notify(impl::ProcessVariableImpl::SharedPtr controlSystemProcessVariable) {
         bool expectedNotificationPending = false;
         if (_notificationPending.compare_exchange_strong(
             expectedNotificationPending, true, boost::memory_order_acq_rel)) {
@@ -374,7 +374,7 @@ namespace mtca4u {
         _notificationPending.store(false, boost::memory_order_release);
       }
 
-      inline ProcessVariable::SharedPtr getControlSystemProcessVariable() {
+      inline impl::ProcessVariableImpl::SharedPtr getControlSystemProcessVariable() {
         return _controlSystemProcessVariable.lock();
       }
 
@@ -389,7 +389,7 @@ namespace mtca4u {
     private:
       // We use weak references in order to avoid circular references.
       boost::weak_ptr<PVManager> _pvManager;
-      boost::weak_ptr<ProcessVariable> _deviceProcessVariable;
+      boost::weak_ptr<impl::ProcessVariableImpl> _deviceProcessVariable;
       boost::atomic<bool> _notificationPending;
 
     public:
@@ -398,7 +398,7 @@ namespace mtca4u {
           _pvManager(pvManager), _notificationPending(false) {
       }
 
-      void notify(ProcessVariable::SharedPtr deviceProcessVariable) {
+      void notify(impl::ProcessVariableImpl::SharedPtr deviceProcessVariable) {
         bool expectedNotificationPending = false;
         if (_notificationPending.compare_exchange_strong(
             expectedNotificationPending, true, boost::memory_order_acq_rel)) {
@@ -423,7 +423,7 @@ namespace mtca4u {
         _notificationPending.store(false, boost::memory_order_release);
       }
 
-      inline ProcessVariable::SharedPtr getDeviceProcessVariable() {
+      inline impl::ProcessVariableImpl::SharedPtr getDeviceProcessVariable() {
         return _deviceProcessVariable.lock();
       }
 

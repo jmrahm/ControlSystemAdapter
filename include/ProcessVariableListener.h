@@ -6,6 +6,10 @@
 #include "ProcessVariableDecl.h"
 
 namespace mtca4u {
+  namespace impl{
+    template <class T>
+      class ProcessScalarImpl;
+  }
 
 /**
  * Listener receiving event notifications for a process variable. The exact
@@ -24,7 +28,7 @@ public:
 	 * occurs. The passed process variable is the one for which the event has
 	 * been triggered.
 	 */
-	virtual void notify(boost::shared_ptr<ProcessVariable> processVariable) =0;
+	virtual void notify(boost::shared_ptr<impl::ProcessVariableImpl> processVariable) =0;
 
 protected:
 	/**

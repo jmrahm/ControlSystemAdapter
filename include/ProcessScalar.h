@@ -22,6 +22,11 @@ namespace mtca4u {
   class ProcessScalar: public ProcessVariable {
   public:
     /**
+     * Type alias for a shared pointer to this type.
+     */
+    typedef boost::shared_ptr<ProcessScalar> SharedPtr;
+
+    /**
      * Assign the content of another process variable of type T to this one.
      * It only assigns the variable content, but not the callback functions.
      * This operator behaves like set().
@@ -47,7 +52,7 @@ namespace mtca4u {
      * changed.
      */
     void set(ProcessScalar<T> const & other){
-      _processScalarImpl->set(other._processScalarImpl);
+      _processScalarImpl->set(*(other._processScalarImpl));
     }
 
     /**
@@ -68,7 +73,7 @@ namespace mtca4u {
       // note: the impl, whis is always held in a shared pointer, does not need the
       // operator as it does not work directly with the pointer anyway.
       // Hence the implementation of the operator is here: just call get().
-       _processScalarImpl->get();     
+      return _processScalarImpl->get();     
     }
 
     /**
@@ -76,7 +81,7 @@ namespace mtca4u {
      * returned, this cannot be used for assignment.
      */
     T get() const{
-      _processScalarImpl->get();
+      return _processScalarImpl->get();
     }
 
     const std::type_info& getValueType() const {
@@ -113,13 +118,16 @@ namespace mtca4u {
      */
     boost::shared_ptr< impl::ProcessScalarImpl<T> > _processScalarImpl;
 
+    // fixme: should be protected
+  public:
     /**
      * Creates a process scalar with the specified name.
      */
     ProcessScalar(boost::shared_ptr<impl::ProcessScalarImpl <T> > & processScalarImpl) :
-      ProcessVariable(processScalarImpl->name()), _processScalarImpl(processScalarImpl) {
+      ProcessVariable(processScalarImpl->getName()), _processScalarImpl(processScalarImpl) {
     }
-
+  
+  protected:
     /**
      * Protected destructor. Instances should not be destroyed through
      * pointers to this base type.
@@ -129,10 +137,6 @@ namespace mtca4u {
 
   };
 
-} //namespace
-
-
-namespace mtca4u{
   /**
    * Creates a simple process scalar. A simple process scalar just works on its
    * own and does not implement a synchronization mechanism. Apart from this,
@@ -211,7 +215,7 @@ namespace mtca4u {
         boost::make_shared<typename impl::ProcessScalarImpl<T> >(
             impl::ProcessScalarImpl<T>::RECEIVER, name, initialValue,
             numberOfBuffers);
-    typename ProcessScalar<T>::SharedPtr sender = boost::make_shared<
+    boost::shared_ptr<typename impl::ProcessScalarImpl<T> > sender = boost::make_shared<
         typename impl::ProcessScalarImpl<T> >(
         impl::ProcessScalarImpl<T>::SENDER, timeStampSource,
         sendNotificationListener, receiver);
