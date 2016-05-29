@@ -9,6 +9,10 @@
 
 #include "PVManager.h"
 
+// fixme: needed since PVManager already changed to impl
+#include "ProcessScalar.h"
+
+
 namespace mtca4u {
 
   /**

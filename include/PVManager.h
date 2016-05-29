@@ -11,7 +11,7 @@
 #include <boost/unordered_map.hpp>
 
 #include "ProcessArray.h"
-#include "ProcessScalar.h"
+#include "ProcessScalarImpl.h"
 
 #include "PVManagerDecl.h"
 
@@ -78,8 +78,8 @@ namespace mtca4u {
      * the instance intended for the device library as its second member.
      */
     template<class T>
-    std::pair<typename ProcessScalar<T>::SharedPtr,
-        typename ProcessScalar<T>::SharedPtr> createProcessScalarDeviceToControlSystem(
+    std::pair<typename impl::ProcessScalarImpl<T>::SharedPtr,
+        typename impl::ProcessScalarImpl<T>::SharedPtr> createProcessScalarDeviceToControlSystem(
         const std::string& processVariableName, T initialValue = 0,
         std::size_t numberOfBuffers = 1);
 
@@ -101,8 +101,8 @@ namespace mtca4u {
      * the instance intended for the device library as its second member.
      */
     template<class T>
-    std::pair<typename ProcessScalar<T>::SharedPtr,
-        typename ProcessScalar<T>::SharedPtr> createProcessScalarControlSystemToDevice(
+    std::pair<typename impl::ProcessScalarImpl<T>::SharedPtr,
+        typename impl::ProcessScalarImpl<T>::SharedPtr> createProcessScalarControlSystemToDevice(
         const std::string& processVariableName, T initialValue = 0,
         std::size_t numberOfBuffers = 1);
 
@@ -188,8 +188,8 @@ namespace mtca4u {
      * device library.
      */
     template<class T>
-    std::pair<typename ProcessScalar<T>::SharedPtr,
-        typename ProcessScalar<T>::SharedPtr> getProcessScalar(
+    std::pair<typename impl::ProcessScalarImpl<T>::SharedPtr,
+        typename impl::ProcessScalarImpl<T>::SharedPtr> getProcessScalar(
         const std::string& processVariableName) const;
 
     /**
@@ -489,8 +489,8 @@ namespace mtca4u {
       boost::shared_ptr<DevicePVManager> > createPVManager();
 
   template<class T>
-  std::pair<typename ProcessScalar<T>::SharedPtr,
-      typename ProcessScalar<T>::SharedPtr> PVManager::createProcessScalarDeviceToControlSystem(
+  std::pair<typename impl::ProcessScalarImpl<T>::SharedPtr,
+      typename impl::ProcessScalarImpl<T>::SharedPtr> PVManager::createProcessScalarDeviceToControlSystem(
       const std::string& processVariableName, T initialValue,
       std::size_t numberOfBuffers) {
     if (_processVariables.find(processVariableName)
@@ -506,9 +506,9 @@ namespace mtca4u {
         boost::make_shared<DeviceSendNotificationListenerImpl>(
             shared_from_this());
 
-    typename std::pair<typename ProcessScalar<T>::SharedPtr,
-        typename ProcessScalar<T>::SharedPtr> processVariables =
-        createSynchronizedProcessScalar<T>(processVariableName, initialValue,
+    typename std::pair<typename impl::ProcessScalarImpl<T>::SharedPtr,
+        typename impl::ProcessScalarImpl<T>::SharedPtr> processVariables =
+        impl::createSynchronizedProcessScalar<T>(processVariableName, initialValue,
             numberOfBuffers, timeStampSource, sendNotificationListener);
 
     _processVariables.insert(
@@ -524,8 +524,8 @@ namespace mtca4u {
   }
 
   template<class T>
-  std::pair<typename ProcessScalar<T>::SharedPtr,
-      typename ProcessScalar<T>::SharedPtr> PVManager::createProcessScalarControlSystemToDevice(
+  std::pair<typename impl::ProcessScalarImpl<T>::SharedPtr,
+      typename impl::ProcessScalarImpl<T>::SharedPtr> PVManager::createProcessScalarControlSystemToDevice(
       const std::string& processVariableName, T initialValue,
       std::size_t numberOfBuffers) {
     if (_processVariables.find(processVariableName)
@@ -542,9 +542,9 @@ namespace mtca4u {
         boost::make_shared<ControlSystemSendNotificationListenerImpl>(
             shared_from_this());
 
-    typename std::pair<typename ProcessScalar<T>::SharedPtr,
-        typename ProcessScalar<T>::SharedPtr> processVariables =
-        createSynchronizedProcessScalar<T>(processVariableName, initialValue,
+    typename std::pair<typename impl::ProcessScalarImpl<T>::SharedPtr,
+        typename impl::ProcessScalarImpl<T>::SharedPtr> processVariables =
+        impl::createSynchronizedProcessScalar<T>(processVariableName, initialValue,
             numberOfBuffers, timeStampSource, sendNotificationListener);
 
     _processVariables.insert(
@@ -635,23 +635,23 @@ namespace mtca4u {
   }
 
   template<class T>
-  std::pair<typename ProcessScalar<T>::SharedPtr,
-      typename ProcessScalar<T>::SharedPtr> PVManager::getProcessScalar(
+  std::pair<typename impl::ProcessScalarImpl<T>::SharedPtr,
+      typename impl::ProcessScalarImpl<T>::SharedPtr> PVManager::getProcessScalar(
       const std::string& processVariableName) const {
     ProcessVariableSharedPtrPair processVariable = getProcessVariable(
         processVariableName);
     if (processVariable.first && processVariable.second) {
-      typename ProcessScalar<T>::SharedPtr csPV = boost::dynamic_pointer_cast<
-          ProcessScalar<T>, ProcessVariable>(processVariable.first);
-      typename ProcessScalar<T>::SharedPtr devPV = boost::dynamic_pointer_cast<
-          ProcessScalar<T>, ProcessVariable>(processVariable.second);
+      typename impl::ProcessScalarImpl<T>::SharedPtr csPV = boost::dynamic_pointer_cast<
+          impl::ProcessScalarImpl<T>, ProcessVariable>(processVariable.first);
+      typename impl::ProcessScalarImpl<T>::SharedPtr devPV = boost::dynamic_pointer_cast<
+          impl::ProcessScalarImpl<T>, ProcessVariable>(processVariable.second);
       if (!csPV || !devPV) {
         throw std::bad_cast();
       }
       return std::make_pair(csPV, devPV);
     } else {
-      return std::make_pair(typename ProcessScalar<T>::SharedPtr(),
-          typename ProcessScalar<T>::SharedPtr());
+      return std::make_pair(typename impl::ProcessScalarImpl<T>::SharedPtr(),
+          typename impl::ProcessScalarImpl<T>::SharedPtr());
     }
   }
 

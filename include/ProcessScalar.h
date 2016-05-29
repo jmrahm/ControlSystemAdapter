@@ -101,91 +101,25 @@ namespace mtca4u{
   template<class T>
     using ProcessScalar = impl::ProcessScalarImpl<T>;
 
-  /**
-   * Creates a simple process scalar. A simple process scalar just works on its
-   * own and does not implement a synchronization mechanism. Apart from this,
-   * it is fully functional, so that you get and set values.
-   */
-  template<class T>
-  typename ProcessScalar<T>::SharedPtr createSimpleProcessScalar(
-      const std::string & name = "", T initialValue = 0);
-
-  /**
-   * Creates a synchronized process scalar. A synchronized process scalar works
-   * as a pair of two process scalars, where one process scalar acts as a sender
-   * and the other one acts as a receiver.
-   *
-   * Changes that have been made to the sender can be sent to the receiver
-   * through the {@link ProcessScalar::send()} method. The receiver can be
-   * updated with these changes by calling its {@link ProcessScalar::receive()}
-   * method.
-   *
-   * The synchronization is implemented in a thread-safe manner, so that the
-   * sender and the receiver can safely be used by different threads without
-   * a mutex. However, both the sender and receiver each only support a single
-   * thread. This means that the sender or the receiver have to be protected
-   * with a mutex if more than one thread wants to access either of them.
-   *
-   * The number of buffers specifies how many buffers are allocated for the
-   * send / receive mechanism. The minimum number (and default) is two. This
-   * number specifies, how many times {@link ProcessArray::send()} can be called
-   * in a row without losing data when {@link ProcessArray::receive()} is not
-   * called in between.
-   *
-   * The specified time-stamp source is used for determining the current time
-   * when sending a value. The receiver will be updated with this time stamp
-   * when receiving the value. If no time-stamp source is specified, the current
-   * system-time when the value is sent is used.
-   *
-   * The optional send-notification listener is notified every time the sender's
-   * {@link ProcessScalar::send()} method is called. It can be used to queue a
-   * request for the receiver's {@link ProcessScalar::receive()} method to be
-   * called.  The process variable passed to the listener is the receiver and
-   * not the sender.
-   */
-  template<class T>
-  typename std::pair<typename ProcessScalar<T>::SharedPtr,
-      typename ProcessScalar<T>::SharedPtr> createSynchronizedProcessScalar(
+ template<class T>
+   typename std::pair<typename ProcessScalar<T>::SharedPtr,
+   typename ProcessScalar<T>::SharedPtr >createSynchronizedProcessScalar(
       const std::string & name = "", T initialValue = 0,
       std::size_t numberOfBuffers = 1,
       boost::shared_ptr<TimeStampSource> timeStampSource = boost::shared_ptr<
           TimeStampSource>(),
       boost::shared_ptr<ProcessVariableListener> sendNotificationListener =
-          boost::shared_ptr<ProcessVariableListener>());
-
-} // namespace mtca4u
-
-// ProcessScalarImpl.h must be included after the class definition and the
-// template function declaration, because it depends on it.
-#include "ProcessScalarImpl.h"
-
-namespace mtca4u {
-
-  template<class T>
-  typename ProcessScalar<T>::SharedPtr createSimpleProcessScalar(
-      const std::string & name, T initialValue) {
-    return boost::make_shared<typename impl::ProcessScalarImpl<T> >(
-        impl::ProcessScalarImpl<T>::STAND_ALONE, name, initialValue);
-  }
-
-  template<class T>
-  typename std::pair<typename ProcessScalar<T>::SharedPtr,
-      typename ProcessScalar<T>::SharedPtr> createSynchronizedProcessScalar(
-      const std::string & name, T initialValue, std::size_t numberOfBuffers,
-      boost::shared_ptr<TimeStampSource> timeStampSource,
-      boost::shared_ptr<ProcessVariableListener> sendNotificationListener) {
-    boost::shared_ptr<typename impl::ProcessScalarImpl<T> > receiver =
-        boost::make_shared<typename impl::ProcessScalarImpl<T> >(
-            impl::ProcessScalarImpl<T>::RECEIVER, name, initialValue,
-            numberOfBuffers);
-    typename ProcessScalar<T>::SharedPtr sender = boost::make_shared<
-        typename impl::ProcessScalarImpl<T> >(
-        impl::ProcessScalarImpl<T>::SENDER, timeStampSource,
-        sendNotificationListener, receiver);
-    return std::pair<typename ProcessScalar<T>::SharedPtr,
-        typename ProcessScalar<T>::SharedPtr>(sender, receiver);
-  }
-
+          boost::shared_ptr<ProcessVariableListener>()){
+     return impl::createSynchronizedProcessScalar( name, initialValue,
+						   numberOfBuffers, timeStampSource,
+						   sendNotificationListener );
+   }
+ 
+ template<class T>
+   typename ProcessScalar<T>::SharedPtr createSimpleProcessScalar(
+      const std::string & name = "", T initialValue = 0) {
+   return impl::createSimpleProcessScalar(name, initialValue);
+ }
 } // namespace mtca4u
 
 #endif // MTCA4U_PROCESS_SCALAR_H

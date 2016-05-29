@@ -12,6 +12,8 @@ namespace mtca4u {
 
 #include "PVManager.h"
 #include "SynchronizationDirection.h"
+// fixme: needed since PVManager already changed to impl
+#include "ProcessScalar.h"
 
 namespace mtca4u {
 
