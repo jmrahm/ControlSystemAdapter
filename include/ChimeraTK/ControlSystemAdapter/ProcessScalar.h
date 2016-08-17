@@ -17,6 +17,8 @@
 
 #include "ProcessVariable.h"
 #include "ProcessVariableListener.h"
+#include "TimeStampSource.h"
+#include "VersionNumberSource.h"
 
 namespace ChimeraTK {
 
@@ -68,7 +70,7 @@ namespace ChimeraTK {
     ProcessScalar(InstanceType instanceType, const std::string& name,
         T initialValue) :
         ProcessVariable(name), _instanceType(instanceType), _value(
-            initialValue) {
+            initialValue), _versionNumber(0) {
       // It would be better to do the validation before initializing, but this
       // would mean that we would have to initialize twice.
       if (instanceType != STAND_ALONE) {
@@ -88,7 +90,7 @@ namespace ChimeraTK {
     ProcessScalar(InstanceType instanceType, const std::string& name,
         T initialValue, std::size_t numberOfBuffers) :
         ProcessVariable(name), _instanceType(instanceType), _value(
-            initialValue), _bufferQueue(
+            initialValue), _versionNumber(0), _bufferQueue(
             boost::make_shared<boost::lockfree::queue<Buffer> >(
                 numberOfBuffers)) {
       // It would be better to do the validation before initializing, but this
@@ -125,7 +127,7 @@ namespace ChimeraTK {
         boost::shared_ptr<ProcessVariableListener> sendNotificationListener,
         boost::shared_ptr<ProcessScalar> receiver) :
         ProcessVariable(receiver->getName()), _instanceType(instanceType), _timeStamp(
-            receiver->_timeStamp), _value(receiver->_value), _bufferQueue(
+            receiver->_timeStamp), _value(receiver->_value), _versionNumber(0), _bufferQueue(
             receiver->_bufferQueue), _receiver(receiver), _timeStampSource(
             timeStampSource), _sendNotificationListener(
             sendNotificationListener) {
@@ -154,7 +156,7 @@ namespace ChimeraTK {
      * expected, and the base class is intentionally non-copyable.
      */
     ProcessScalar<T> & operator=(ProcessScalar<T> const & other) {
-      set(other.get());
+      set(other);
       return (*this);
     }
 
@@ -167,33 +169,59 @@ namespace ChimeraTK {
       return *this;
     }
 
-
     /**
      * Automatic conversion operator which returns a \b copy of this process
      * variable's value. As no reference is returned, this cannot be used for
      * assignment.
      */
-     operator T() const {
+    operator T() const {
       return get();
+    }
+
+    /**
+     * Set the value of this process variable to the specified one and updates
+     * the version number. The process variable's value is only changed if the
+     * specified version number is greater than the version number of the
+     * current value.
+     *
+     * This version of the {@code set} method should be used when the new value
+     * is actually calculated from the value of another process variable. In
+     * this case specifying the version number of the original process
+     * variable's value ensures that process variables updating each other will
+     * not end up in an infinite update loop.
+     */
+    void set(T const & t, VersionNumber newVersionNumber) {
+      if (!_versionNumberSource) {
+        _value = t;
+      } else if (newVersionNumber > _versionNumber) {
+        _value = t;
+        _versionNumber = newVersionNumber;
+      }
     }
 
     /**
      * Set the value of this process variable to the specified one. This does
      * not trigger the on-set callback function, however it notifies the control
      * system that this process variable's value has changed.
+     *
+     * The version number of this process variable is updated by retrieving the
+     * next version number from the version number source.
      */
     void set(T const & t) {
       _value = t;
+      if (_versionNumberSource) {
+        _versionNumber = _versionNumberSource->nextVersionNumber();
+      }
     }
-    
+
     // FIXME: this belongs to ProcessScalar, not the Impl. Moved here to remove the impl
     // inheritence for creating the pimpl pattern, where impl and not are typedefed.
     const std::type_info& getValueType() const {
-	return typeid(T);
+      return typeid(T);
     }
 
     bool isArray() const {
-	return false;
+      return false;
     }
 
     /**
@@ -203,7 +231,7 @@ namespace ChimeraTK {
      * changed.
      */
     void set(ProcessScalar<T> const & other) {
-      set(other.get());
+      set(other.get(), other.getVersionNumber());
     }
 
     /**
@@ -230,6 +258,10 @@ namespace ChimeraTK {
       return _timeStamp;
     }
 
+    VersionNumber getVersionNumber() const {
+      return _versionNumber;
+    }
+
     bool receive() {
       if (_instanceType != RECEIVER) {
         throw std::logic_error(
@@ -237,8 +269,12 @@ namespace ChimeraTK {
       }
       Buffer nextBuffer;
       if (_bufferQueue->pop(nextBuffer)) {
-        _timeStamp = nextBuffer.timeStamp;
-        _value = nextBuffer.value;
+        if (!_versionNumberSource
+            || nextBuffer.versionNumber > _versionNumber) {
+          _timeStamp = nextBuffer.timeStamp;
+          _value = nextBuffer.value;
+          _versionNumber = nextBuffer.versionNumber;
+        }
         return true;
       } else {
         return false;
@@ -258,6 +294,7 @@ namespace ChimeraTK {
       Buffer nextBuffer;
       nextBuffer.timeStamp = _timeStamp;
       nextBuffer.value = _value;
+      nextBuffer.versionNumber = _versionNumber;
       bool foundEmptyBuffer;
       if (_bufferQueue->bounded_push(nextBuffer)) {
         foundEmptyBuffer = true;
@@ -286,6 +323,7 @@ namespace ChimeraTK {
     struct Buffer {
       TimeStamp timeStamp;
       T value;
+      VersionNumber versionNumber;
     };
 
     /**
@@ -302,6 +340,11 @@ namespace ChimeraTK {
      * Current value.
      */
     T _value;
+
+    /**
+     * Version number associated with the value.
+     */
+    VersionNumber _versionNumber;
 
     /**
      * Queue holding the values that have been sent but not received yet.
@@ -323,12 +366,17 @@ namespace ChimeraTK {
     boost::shared_ptr<TimeStampSource> _timeStampSource;
 
     /**
+     * Version number source used to update the version number when setting a
+     * new value.
+     */
+    boost::shared_ptr<VersionNumberSource> _versionNumberSource;
+
+    /**
      * Listener that is notified when the process variable is sent.
      */
     boost::shared_ptr<ProcessVariableListener> _sendNotificationListener;
 
   };
-
 
   /**
    * Creates a simple process scalar. A simple process scalar just works on its
@@ -390,8 +438,8 @@ namespace ChimeraTK {
   template<class T>
   typename ProcessScalar<T>::SharedPtr createSimpleProcessScalar(
       const std::string & name, T initialValue) {
-    return boost::make_shared<ProcessScalar<T> >(
-        ProcessScalar<T>::STAND_ALONE, name, initialValue);
+    return boost::make_shared<ProcessScalar<T> >(ProcessScalar<T>::STAND_ALONE,
+        name, initialValue);
   }
 
   template<class T>
@@ -400,13 +448,11 @@ namespace ChimeraTK {
       const std::string & name, T initialValue, std::size_t numberOfBuffers,
       boost::shared_ptr<TimeStampSource> timeStampSource,
       boost::shared_ptr<ProcessVariableListener> sendNotificationListener) {
-    boost::shared_ptr<ProcessScalar<T> > receiver =
-        boost::make_shared<ProcessScalar<T> >(
-            ProcessScalar<T>::RECEIVER, name, initialValue,
-            numberOfBuffers);
+    boost::shared_ptr<ProcessScalar<T> > receiver = boost::make_shared<
+        ProcessScalar<T> >(ProcessScalar<T>::RECEIVER, name, initialValue,
+        numberOfBuffers);
     typename ProcessScalar<T>::SharedPtr sender = boost::make_shared<
-        ProcessScalar<T> >(
-        ProcessScalar<T>::SENDER, timeStampSource,
+        ProcessScalar<T> >(ProcessScalar<T>::SENDER, timeStampSource,
         sendNotificationListener, receiver);
     return std::pair<typename ProcessScalar<T>::SharedPtr,
         typename ProcessScalar<T>::SharedPtr>(sender, receiver);

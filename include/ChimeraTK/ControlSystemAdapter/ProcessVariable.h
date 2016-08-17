@@ -10,9 +10,9 @@ namespace ChimeraTK {
 
 #include <boost/smart_ptr.hpp>
 
-#include "TimeStampSource.h"
-
 #include "ProcessVariableDecl.h"
+#include "TimeStamp.h"
+#include "VersionNumber.h"
 
 namespace ChimeraTK {
 
@@ -39,6 +39,16 @@ namespace ChimeraTK {
      * variable at runtime.
      */
     virtual const std::type_info& getValueType() const =0;
+
+    /**
+     * Returns the version number that is associated with the current value.
+     * The version number is used to resolve conflicting updates. An update
+     * (e.g. received using the {@link receive()} method) is only used if its
+     * value has a version number that is greater than the version number of the
+     * current value. Initially, each process variable has a version number of
+     * zero.
+     */
+    virtual VersionNumber getVersionNumber() const =0;
 
     /**
      * Returns <code>true</code> if this object is an instance of
