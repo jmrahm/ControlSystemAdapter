@@ -10,9 +10,9 @@ namespace ChimeraTK {
 
 #include <boost/smart_ptr.hpp>
 
-#include "TimeStampSource.h"
-
 #include "ProcessVariableDecl.h"
+#include "TimeStamp.h"
+#include "VersionNumber.h"
 
 namespace ChimeraTK {
 
@@ -39,6 +39,16 @@ namespace ChimeraTK {
      * variable at runtime.
      */
     virtual const std::type_info& getValueType() const =0;
+
+    /**
+     * Returns the version number that is associated with the current value.
+     * The version number is used to resolve conflicting updates. An update
+     * (e.g. received using the {@link receive()} method) is only used if its
+     * value has a version number that is greater than the version number of the
+     * current value. Initially, each process variable has a version number of
+     * zero.
+     */
+    virtual VersionNumber getVersionNumber() const =0;
 
     /**
      * Returns <code>true</code> if this object is an instance of
@@ -83,6 +93,84 @@ namespace ChimeraTK {
      * Throws an exception if this process variable is not a sender.
      */
     virtual bool send() =0;
+
+    /**
+     * Forces the next {@link send()} operation to use the specified version
+     * number instead of retrieving a new version number from the version number
+     * source.
+     *
+     * When the version number of this process variable's current value is less
+     * than the specified version number, the specified version number is used
+     * for the next <code>send()</code> operation and this method returns
+     * <code>true</code>. Otherwise, the version number used for the next
+     * <code>send()</code> operation is not touched and this method returns
+     * <code>false</code>.
+     *
+     * When updating this process variable with a value that is based on the
+     * value of another process variable that has just been received, this
+     * method should be called before modifying this process variable's value
+     * and the value should only be modified if this method returns
+     * <code>true</code>. This way, process variables that depend on each other
+     * in a circular way will only be updated once in the case of an externally
+     * triggered update instead of ending up in an infinite update loop.
+     *
+     * The version number set by this method is only effective for the next
+     * <code>send()</code> operation and is also the effective version number
+     * used for this process variable (e.g. returned by
+     * {@link getVersionNumber()}) until then. If a new value with a version
+     * number greater than the version number set by this method is received for
+     * this process variable (by calling {@link receive()}) before calling
+     * <code>send()</code>, the version number of this process variable is set
+     * to the version number of the received value and the next send() operation
+     * falls back to the default behavior of retrieving a new version number
+     * from the version number source.
+     */
+    virtual bool useOriginVersionNumberForNextSend(
+        VersionNumber originalVersionNumber) =0;
+
+    /**
+     * Forces the next {@link send()} operation to use the version number from
+     * the specified process variable instead of retrieving a new version number
+     * from the version number source.
+     *
+     * When the version number of this process variable's current value is less
+     * than the version number associated with the specified process variable's
+     * current value, the version number of the specified process variable is
+     * used for the next <code>send()</code> operation and this method returns
+     * <code>true</code>. Otherwise, the version number used for the next
+     * <code>send()</code> operation is not touched and this method returns
+     * <code>false</code>.
+     *
+     * When updating this process variable with a value that is based on the
+     * value of another process variable that has just been received, this
+     * method should be called before modifying this process variable's value
+     * and the value should only be modified if this method returns
+     * <code>true</code>. This way, process variables that depend on each other
+     * in a circular way will only be updated once in the case of an externally
+     * triggered update instead of ending up in an infinite update loop.
+     *
+     * The version number set by this method is only effective for the next
+     * <code>send()</code> operation and is also the effective version number
+     * used for this process variable (e.g. returned by
+     * {@link getVersionNumber()}) until then. If a new value with a version
+     * number greater than the version number set by this method is received for
+     * this process variable (by calling {@link receive()}) before calling
+     * <code>send()</code>, the version number of this process variable is set
+     * to the version number of the received value and the next send() operation
+     * falls back to the default behavior of retrieving a new version number
+     * from the version number source.
+     *
+     * This method is only supplied for convenience and is equivalent to
+     * <code>(originalProcessVariable) ? useOriginVersionNumberForNextSend(originalProcessVariable->getVersionNumber()) : false</code>.
+     */
+    inline bool useOriginVersionNumberForNextSend(
+        ProcessVariable::SharedPtr originalProcessVariable) {
+      return
+          (originalProcessVariable) ?
+              useOriginVersionNumberForNextSend(
+                  originalProcessVariable->getVersionNumber()) :
+              false;
+    }
 
   protected:
     /**
