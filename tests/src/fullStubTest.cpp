@@ -13,12 +13,12 @@ struct TestCoreFixture{
 	    boost::shared_ptr<DevicePVManager> > pvManagers;
   boost::shared_ptr<ControlSystemPVManager> csManager;
   boost::shared_ptr<DevicePVManager> devManager;
-  
+
   IndependentTestCore testCore;
 
   ControlSystemSynchronizationUtility csSyncUtil;
 
-  TestCoreFixture() : 
+  TestCoreFixture() :
     pvManagers( createPVManager() ),
     csManager( pvManagers.first ),
     devManager( pvManagers.second ),
@@ -45,7 +45,7 @@ struct TestCoreFixture{
     csSyncUtil.sendAll();
     IndependentTestCore::runMainLoopOnce();
     csSyncUtil.receiveAll();
-  
+
     BOOST_CHECK( *fromDeviceScalar == previousReadValue+13 );
   }
 
@@ -64,7 +64,7 @@ struct TestCoreFixture{
 			  errorMessage.str());
     }
   }
- 
+
   template<class UserType>
   void typedWriteArrayTest(std::string typeNamePrefix){
     auto toDeviceArray = csManager->getProcessArray<UserType>(typeNamePrefix+"/TO_DEVICE_ARRAY");
@@ -80,6 +80,7 @@ struct TestCoreFixture{
     for (size_t i = 0; i < toDeviceArray->get().size(); ++i){
       toDeviceArray->get()[i] = 13 + i;
     }
+    toDeviceArray->modified();
 
     csSyncUtil.sendAll();
     IndependentTestCore::runMainLoopOnce();
@@ -89,7 +90,7 @@ struct TestCoreFixture{
       BOOST_CHECK(fromDeviceArray->get()[i] == static_cast<UserType>(13 + i));
     }
   }
- 
+
 };
 
 BOOST_AUTO_TEST_SUITE( FullStubTestSuite )
@@ -118,25 +119,25 @@ BOOST_FIXTURE_TEST_CASE( test_write_scalar, TestCoreFixture){
 }
 
 BOOST_FIXTURE_TEST_CASE( test_read_array, TestCoreFixture){
-  typedReadArrayTest<int8_t>("CHAR");	 
+  typedReadArrayTest<int8_t>("CHAR");
   typedReadArrayTest<uint8_t>("UCHAR");
   typedReadArrayTest<int16_t>("SHORT");
   typedReadArrayTest<uint16_t>("USHORT");
-  typedReadArrayTest<int32_t>("INT");	 
+  typedReadArrayTest<int32_t>("INT");
   typedReadArrayTest<uint32_t>("UINT");
-  typedReadArrayTest<float>("FLOAT");	 
-  typedReadArrayTest<double>("DOUBLE");  
+  typedReadArrayTest<float>("FLOAT");
+  typedReadArrayTest<double>("DOUBLE");
 }
 
 BOOST_FIXTURE_TEST_CASE( test_write_array, TestCoreFixture){
-  typedWriteArrayTest<int8_t>("CHAR");	 
+  typedWriteArrayTest<int8_t>("CHAR");
   typedWriteArrayTest<uint8_t>("UCHAR");
   typedWriteArrayTest<int16_t>("SHORT");
   typedWriteArrayTest<uint16_t>("USHORT");
-  typedWriteArrayTest<int32_t>("INT");	 
+  typedWriteArrayTest<int32_t>("INT");
   typedWriteArrayTest<uint32_t>("UINT");
-  typedWriteArrayTest<float>("FLOAT");	 
-  typedWriteArrayTest<double>("DOUBLE");  
+  typedWriteArrayTest<float>("FLOAT");
+  typedWriteArrayTest<double>("DOUBLE");
 }
 
 BOOST_AUTO_TEST_SUITE_END()

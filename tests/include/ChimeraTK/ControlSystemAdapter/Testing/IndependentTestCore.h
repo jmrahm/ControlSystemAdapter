@@ -55,6 +55,7 @@ struct TypedPVHolder{
       for (size_t i = 0; i < constantArray->get().size(); ++i){
 	constantArray->get()[i] = (*dataTypeConstant)*i*i;
       }
+      constantArray->modified();
     }
 
   void inputToOutput(){
@@ -63,6 +64,7 @@ struct TypedPVHolder{
     for (size_t i = 0; i < fromDeviceArray->get().size() &&  i < toDeviceArray->get().size() ; ++i){
       fromDeviceArray->get()[i] = toDeviceArray->get()[i];
     }
+    fromDeviceArray->modified();
     fromDeviceArray->send();
   }
 };

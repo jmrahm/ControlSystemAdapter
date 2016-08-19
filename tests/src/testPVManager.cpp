@@ -353,6 +353,7 @@ BOOST_AUTO_TEST_SUITE( PVManagerTestSuite )
     floatArrayOut->get().at(0) = 1.0f;
     floatArrayOut->get().at(1) = 2.0f;
     floatArrayOut->get().at(2) = -1.3f;
+    floatArrayOut->modified();
 
     // Send the values, wait a moment for the other thread to send the updates
     // and then receive the new values.
@@ -369,6 +370,7 @@ BOOST_AUTO_TEST_SUITE( PVManagerTestSuite )
     floatArrayOut->get().at(0) = 15.0f;
     floatArrayOut->get().at(1) = -7.2f;
     floatArrayOut->get().at(9) = 120.0f;
+    floatArrayOut->modified();
 
     // Send the values, wait a moment for the other thread to send the updates
     // and then receive the new values.
@@ -719,12 +721,14 @@ BOOST_AUTO_TEST_SUITE( PVManagerTestSuite )
     // By default, the PV manager should be in automatic time-stamp mode.
     BOOST_CHECK(devManager->isAutomaticReferenceTimeStampMode());
 
+    intAdev->set(intAdev->get());
     intAdev->send();
 
     // We sleep slightly more than a second, this should ensure that the time
     // changes even on systems that do not have a high precision timer.
     boost::this_thread::sleep_for(boost::chrono::milliseconds(1100));
 
+    intBdev->set(intBdev->get());
     intBdev->send();
 
     // intB should have a time stamp that is greater than the time stamp of

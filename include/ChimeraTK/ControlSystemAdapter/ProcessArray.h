@@ -253,11 +253,9 @@ namespace ChimeraTK {
       // exception if this process variable must not be modified.
       std::vector<T> &thisValue = get();
       VersionNumber &thisVersionNumber = getCurrentBuffer().versionNumber;
-      if (!_versionNumberSource) {
+      if (!_versionNumberSource || newVersionNumber > thisVersionNumber) {
         thisValue = v;
-      } else if (newVersionNumber > thisVersionNumber) {
-        thisValue = v;
-        thisVersionNumber = newVersionNumber;
+        modified(newVersionNumber);
       }
     }
 
@@ -281,10 +279,7 @@ namespace ChimeraTK {
       // exception if this process variable must not be modified.
       std::vector<T> &thisValue = get();
       thisValue = v;
-      if (_versionNumberSource) {
-        getCurrentBuffer().versionNumber =
-            _versionNumberSource->nextVersionNumber();
-      }
+      modified();
     }
 
     /**
@@ -334,11 +329,10 @@ namespace ChimeraTK {
       if (otherVector->size() != get().size()) {
         throw std::runtime_error("Vector sizes do not match");
       }
-      if (!_versionNumberSource) {
+      if (!_versionNumberSource
+          || newVersionNumber > getCurrentBuffer().versionNumber) {
         getCurrentBuffer().value.swap(otherVector);
-      } else if (newVersionNumber > getCurrentBuffer().versionNumber) {
-        getCurrentBuffer().value.swap(otherVector);
-        getCurrentBuffer().versionNumber = newVersionNumber;
+        modified(newVersionNumber);
       }
     }
 
@@ -360,6 +354,47 @@ namespace ChimeraTK {
         throw std::runtime_error("Vector sizes do not match");
       }
       getCurrentBuffer().value.swap(otherVector);
+      modified();
+    }
+
+    /**
+     * Marks the value as modified. This method should be called when the value
+     * is modified through the reference returned by the {@link get()} method.
+     *
+     * This version of the {@code modified} method should be used when the new
+     * value is actually calculated from the value of another process variable.
+     * In this case specifying the version number of the original process
+     * variable's value ensures that process variables updating each other will
+     * not end up in an infinite update loop.
+     *
+     * If this instance of the process array must not be modified (because it is
+     * a receiver and does not allow swapping), this method throws an exception.
+     */
+    void modified(VersionNumber newVersionNumber) {
+      if (_instanceType == RECEIVER && !_swappable) {
+        throw std::logic_error(
+            "Attempt to modify a read-only process variable.");
+      }
+      if (_versionNumberSource) {
+        getCurrentBuffer().versionNumber = newVersionNumber;
+      }
+    }
+
+    /**
+     * Marks the value as modified. This method should be called when the value
+     * is modified through the reference returned by the {@link get()} method.
+     *
+     * If this instance of the process array must not be modified (because it is
+     * a receiver and does not allow swapping), this method throws an exception.
+     *
+     * The version number of this process array is updated by retrieving the
+     * next version number from the version number source.
+     */
+    void modified() {
+      if (_instanceType == RECEIVER && !_swappable) {
+        throw std::logic_error(
+            "Attempt to modify a read-only process variable.");
+      }
       if (_versionNumberSource) {
         getCurrentBuffer().versionNumber =
             _versionNumberSource->nextVersionNumber();
@@ -493,6 +528,7 @@ namespace ChimeraTK {
         if (!_versionNumberSource
             || ((*_buffers)[nextIndex]).versionNumber
                 > ((*_buffers)[_currentIndex]).versionNumber) {
+          _emptyBufferQueue->push(nextIndex);
           _emptyBufferQueue->push(_currentIndex);
           _currentIndex = nextIndex;
           return true;
