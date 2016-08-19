@@ -107,7 +107,7 @@ namespace ChimeraTK {
      */
     ProcessArray(InstanceType instanceType, const std::string& name,
         const std::vector<T>& initialValue, std::size_t numberOfBuffers,
-        bool swappable) :
+        bool swappable, VersionNumberSource::SharedPtr versionNumberSource) :
         ProcessVariable(name), _instanceType(instanceType), _vectorSize(
             initialValue.size()), _swappable(swappable), _buffers(
             boost::make_shared<std::vector<Buffer> >(numberOfBuffers + 2)), _fullBufferQueue(
@@ -115,7 +115,8 @@ namespace ChimeraTK {
                 numberOfBuffers)), _emptyBufferQueue(
             boost::make_shared<boost::lockfree::spsc_queue<std::size_t> >(
                 numberOfBuffers)), _currentIndex(0), _lastSentIndex(0), _haveOriginalVersionNumber(
-            false), _originalVersionNumber(0) {
+            false), _originalVersionNumber(0), _versionNumberSource(
+            versionNumberSource) {
       // It would be better to do the validation before initializing, but this
       // would mean that we would have to initialize twice.
       if (instanceType != RECEIVER) {
@@ -173,15 +174,16 @@ namespace ChimeraTK {
      * variable passed to the listener is the receiver and not the sender.
      */
     ProcessArray(InstanceType instanceType, bool swappable,
-        boost::shared_ptr<TimeStampSource> timeStampSource,
-        boost::shared_ptr<ProcessVariableListener> sendNotificationListener,
-        boost::shared_ptr<ProcessArray> receiver) :
+        TimeStampSource::SharedPtr timeStampSource,
+        VersionNumberSource::SharedPtr versionNumberSource,
+        ProcessVariableListener::SharedPtr sendNotificationListener,
+        ProcessArray::SharedPtr receiver) :
         ProcessVariable(receiver->getName()), _instanceType(instanceType), _vectorSize(
             receiver->_vectorSize), _swappable(swappable), _buffers(
             receiver->_buffers), _fullBufferQueue(receiver->_fullBufferQueue), _emptyBufferQueue(
             receiver->_emptyBufferQueue), _currentIndex(1), _lastSentIndex(1), _haveOriginalVersionNumber(
             false), _originalVersionNumber(0), _receiver(receiver), _timeStampSource(
-            timeStampSource), _sendNotificationListener(
+            timeStampSource), _versionNumberSource(versionNumberSource), _sendNotificationListener(
             sendNotificationListener) {
       // It would be better to do the validation before initializing, but this
       // would mean that we would have to initialize twice.
@@ -695,10 +697,11 @@ namespace ChimeraTK {
       typename ProcessArray<T>::SharedPtr> createSynchronizedProcessArray(
       std::size_t size, const std::string & name = "", T initialValue = 0,
       bool swappable = true, std::size_t numberOfBuffers = 2,
-      boost::shared_ptr<TimeStampSource> timeStampSource = boost::shared_ptr<
-          TimeStampSource>(),
-      boost::shared_ptr<ProcessVariableListener> sendNotificationListener =
-          boost::shared_ptr<ProcessVariableListener>());
+      TimeStampSource::SharedPtr timeStampSource = TimeStampSource::SharedPtr(),
+      VersionNumberSource::SharedPtr versionNumberSource =
+          VersionNumberSource::SharedPtr(),
+      ProcessVariableListener::SharedPtr sendNotificationListener =
+          ProcessVariableListener::SharedPtr());
 
   /**
    * Creates a synchronized process array. A synchronized process array works
@@ -748,10 +751,11 @@ namespace ChimeraTK {
       typename ProcessArray<T>::SharedPtr> createSynchronizedProcessArray(
       const std::vector<T>& initialValue, const std::string & name = "",
       bool swappable = true, std::size_t numberOfBuffers = 2,
-      boost::shared_ptr<TimeStampSource> timeStampSource = boost::shared_ptr<
-          TimeStampSource>(),
-      boost::shared_ptr<ProcessVariableListener> sendNotificationListener =
-          boost::shared_ptr<ProcessVariableListener>());
+      TimeStampSource::SharedPtr timeStampSource = TimeStampSource::SharedPtr(),
+      VersionNumberSource::SharedPtr versionNumberSource =
+          VersionNumberSource::SharedPtr(),
+      ProcessVariableListener::SharedPtr sendNotificationListener =
+          ProcessVariableListener::SharedPtr());
 
   template<class T>
   typename ProcessArray<T>::SharedPtr createSimpleProcessArray(std::size_t size,
@@ -772,14 +776,16 @@ namespace ChimeraTK {
       typename ProcessArray<T>::SharedPtr> createSynchronizedProcessArray(
       std::size_t size, const std::string & name, T initialValue,
       bool swappable, std::size_t numberOfBuffers,
-      boost::shared_ptr<TimeStampSource> timeStampSource,
-      boost::shared_ptr<ProcessVariableListener> sendNotificationListener) {
+      TimeStampSource::SharedPtr timeStampSource,
+      VersionNumberSource::SharedPtr versionNumberSource,
+      ProcessVariableListener::SharedPtr sendNotificationListener) {
     typename boost::shared_ptr<ProcessArray<T> > receiver = boost::make_shared<
         ProcessArray<T> >(ProcessArray<T>::RECEIVER, name,
-        std::vector<T>(size, initialValue), numberOfBuffers, swappable);
+        std::vector<T>(size, initialValue), numberOfBuffers, swappable,
+        versionNumberSource);
     typename ProcessArray<T>::SharedPtr sender = boost::make_shared<
         ProcessArray<T> >(ProcessArray<T>::SENDER, swappable, timeStampSource,
-        sendNotificationListener, receiver);
+        versionNumberSource, sendNotificationListener, receiver);
     return std::pair<typename ProcessArray<T>::SharedPtr,
         typename ProcessArray<T>::SharedPtr>(sender, receiver);
   }
@@ -789,14 +795,15 @@ namespace ChimeraTK {
       typename ProcessArray<T>::SharedPtr> createSynchronizedProcessArray(
       const std::vector<T>& initialValue, const std::string & name,
       bool swappable, std::size_t numberOfBuffers,
-      boost::shared_ptr<TimeStampSource> timeStampSource,
-      boost::shared_ptr<ProcessVariableListener> sendNotificationListener) {
+      TimeStampSource::SharedPtr timeStampSource,
+      VersionNumberSource::SharedPtr versionNumberSource,
+      ProcessVariableListener::SharedPtr sendNotificationListener) {
     typename boost::shared_ptr<ProcessArray<T> > receiver = boost::make_shared<
         ProcessArray<T> >(ProcessArray<T>::RECEIVER, name, initialValue,
-        numberOfBuffers, swappable);
+        numberOfBuffers, swappable, versionNumberSource);
     typename ProcessArray<T>::SharedPtr sender = boost::make_shared<
         ProcessArray<T> >(ProcessArray<T>::SENDER, swappable, timeStampSource,
-        sendNotificationListener, receiver);
+        versionNumberSource, sendNotificationListener, receiver);
     return std::pair<typename ProcessArray<T>::SharedPtr,
         typename ProcessArray<T>::SharedPtr>(sender, receiver);
   }

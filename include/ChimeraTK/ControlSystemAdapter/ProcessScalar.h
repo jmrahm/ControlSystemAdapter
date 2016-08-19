@@ -89,12 +89,13 @@ namespace ChimeraTK {
      * send/receive process and are shared with the sender.
      */
     ProcessScalar(InstanceType instanceType, const std::string& name,
-        T initialValue, std::size_t numberOfBuffers) :
+        T initialValue, std::size_t numberOfBuffers,
+        VersionNumberSource::SharedPtr versionNumberSource) :
         ProcessVariable(name), _instanceType(instanceType), _value(
             initialValue), _versionNumber(0), _haveOriginalVersionNumber(false), _originalVersionNumber(
             0), _bufferQueue(
             boost::make_shared<boost::lockfree::queue<Buffer> >(
-                numberOfBuffers)) {
+                numberOfBuffers)), _versionNumberSource(versionNumberSource) {
       // It would be better to do the validation before initializing, but this
       // would mean that we would have to initialize twice.
       if (instanceType != RECEIVER) {
@@ -125,14 +126,15 @@ namespace ChimeraTK {
      * variable passed to the listener is the receiver and not the sender.
      */
     ProcessScalar(InstanceType instanceType,
-        boost::shared_ptr<TimeStampSource> timeStampSource,
-        boost::shared_ptr<ProcessVariableListener> sendNotificationListener,
-        boost::shared_ptr<ProcessScalar> receiver) :
+        TimeStampSource::SharedPtr timeStampSource,
+        VersionNumberSource::SharedPtr versionNumberSource,
+        ProcessVariableListener::SharedPtr sendNotificationListener,
+        ProcessScalar::SharedPtr receiver) :
         ProcessVariable(receiver->getName()), _instanceType(instanceType), _timeStamp(
             receiver->_timeStamp), _value(receiver->_value), _versionNumber(0), _haveOriginalVersionNumber(
             false), _originalVersionNumber(0), _bufferQueue(
             receiver->_bufferQueue), _receiver(receiver), _timeStampSource(
-            timeStampSource), _sendNotificationListener(
+            timeStampSource), _versionNumberSource(versionNumberSource), _sendNotificationListener(
             sendNotificationListener) {
       // It would be better to do the validation before initializing, but this
       // would mean that we would have to initialize twice.
@@ -436,10 +438,11 @@ namespace ChimeraTK {
       typename ProcessScalar<T>::SharedPtr> createSynchronizedProcessScalar(
       const std::string & name = "", T initialValue = 0,
       std::size_t numberOfBuffers = 1,
-      boost::shared_ptr<TimeStampSource> timeStampSource = boost::shared_ptr<
-          TimeStampSource>(),
-      boost::shared_ptr<ProcessVariableListener> sendNotificationListener =
-          boost::shared_ptr<ProcessVariableListener>());
+      TimeStampSource::SharedPtr timeStampSource = TimeStampSource::SharedPtr(),
+      VersionNumberSource::SharedPtr versionNumberSource =
+          VersionNumberSource::SharedPtr(),
+      ProcessVariableListener::SharedPtr sendNotificationListener =
+          ProcessVariableListener::SharedPtr());
 
   /**
    * A process variable which is not a sender/receiver pair but a single instance.
@@ -457,14 +460,15 @@ namespace ChimeraTK {
   typename std::pair<typename ProcessScalar<T>::SharedPtr,
       typename ProcessScalar<T>::SharedPtr> createSynchronizedProcessScalar(
       const std::string & name, T initialValue, std::size_t numberOfBuffers,
-      boost::shared_ptr<TimeStampSource> timeStampSource,
-      boost::shared_ptr<ProcessVariableListener> sendNotificationListener) {
+      TimeStampSource::SharedPtr timeStampSource,
+      VersionNumberSource::SharedPtr versionNumberSource,
+      ProcessVariableListener::SharedPtr sendNotificationListener) {
     boost::shared_ptr<ProcessScalar<T> > receiver = boost::make_shared<
         ProcessScalar<T> >(ProcessScalar<T>::RECEIVER, name, initialValue,
-        numberOfBuffers);
+        numberOfBuffers, versionNumberSource);
     typename ProcessScalar<T>::SharedPtr sender = boost::make_shared<
         ProcessScalar<T> >(ProcessScalar<T>::SENDER, timeStampSource,
-        sendNotificationListener, receiver);
+        versionNumberSource, sendNotificationListener, receiver);
     return std::pair<typename ProcessScalar<T>::SharedPtr,
         typename ProcessScalar<T>::SharedPtr>(sender, receiver);
   }
